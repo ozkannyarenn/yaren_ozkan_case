@@ -1,19 +1,19 @@
 package pages;
 
 import org.openqa.selenium.*;
-import org.openqa.selenium.interactions.Actions;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 
+import java.sql.Time;
 import java.time.Duration;
 import java.util.List;
 
 public class JobListingPage extends BasePage {
     private By seeAllQAJobsButton = By.xpath("//a[contains(text(), 'See all QA jobs')]");
-    private By locationDropdown = By.id("select2-filter-by-location-container");
     private By locationOptions = By.xpath("//li[contains(@class, 'select2-results__option')]");
     private By jobListings = By.className("position-list-item");
     private By viewRoleButton = By.xpath(".//a[contains(@class, 'btn-navy')]");
+    private By locationDropdown = By.id("select2-filter-by-location-container");
 
     public JobListingPage(WebDriver driver) {
         super(driver);
@@ -27,15 +27,13 @@ public class JobListingPage extends BasePage {
 
     public void filterJobs(String location) {
         try {
-            System.out.println("🌍 Lokasyon filtresi açılıyor...");
-
-            // **Gelişmiş sayfa yükleme bekleme metodunu çağır**
             waitForPageLoad();
 
-            // **Dropdown'un DOM içinde olup olmadığını bekle**
+            int oldCount = driver.findElements(jobListings).size();
+
             WebElement dropdown = waitForElementToBePresent(locationDropdown, 15);
 
-            // **Dropdown açılmazsa JavaScript ile zorla aç**
+            wait.until(ExpectedConditions.visibilityOf(dropdown));
             dropdown.click();
 
             // **Dropdown içindeki seçenekleri bekle**
@@ -49,7 +47,8 @@ public class JobListingPage extends BasePage {
 
             if (selectedOption != null) {
                 selectedOption.click();
-                System.out.println("✅ '" + location + "' seçildi!");
+                waitForJobListingsRefresh(oldCount);
+
             } else {
                 throw new NoSuchElementException("❌ '" + location + "' bulunamadı!");
             }
@@ -59,10 +58,19 @@ public class JobListingPage extends BasePage {
         }
     }
 
-    public void waitForJobListings() {
-        System.out.println("⏳ İş ilanlarının yüklenmesi bekleniyor...");
-        wait.until(ExpectedConditions.presenceOfAllElementsLocatedBy(jobListings));
-        System.out.println("✅ İş ilanları yüklendi.");
+    /**
+     * "jobs-list" kısmının gerçekten yenilenmesi için,
+     * eski ve yeni ilan sayısının farklı hale gelmesini bekliyoruz.
+     */
+    public void waitForJobListingsRefresh(int oldCount) {
+        WebDriverWait customWait = new WebDriverWait(driver, Duration.ofSeconds(15));
+
+        customWait.until(driver -> {
+            int newCount = driver.findElements(jobListings).size();
+            return newCount != oldCount;
+        });
+
+        System.out.println("✅ İş ilanları yenilendi!");
     }
 
     public boolean areJobsDisplayed() {
@@ -71,37 +79,13 @@ public class JobListingPage extends BasePage {
 
     public void clickFirstJobViewRole() {
         try {
-            waitForJobListings(); // İş ilanlarının yüklendiğini bekle!
 
-            // **İlanların DOM içinde olup olmadığını tekrar bul**
-            List<WebElement> jobItems = waitForElementListToBeVisible(By.className("position-list-item"), 10);
-            System.out.println("🔹 " + jobItems.size() + " iş ilanı bulundu, ilk ilana odaklanılıyor...");
+            List<WebElement> jobs = wait.until(ExpectedConditions.presenceOfAllElementsLocatedBy(jobListings));
 
-            if (jobItems.isEmpty()) {
-                throw new NoSuchElementException("❌ Hiç iş ilanı bulunamadı!");
-            }
+            WebElement firstJob = jobs.get(0);
+            WebElement button = firstJob.findElement(viewRoleButton);
 
-            // **İlk iş ilanını bul**
-            WebElement firstJob = jobItems.get(0);
-
-            // **İlk iş ilanı içindeki "View Role" butonunu doğru şekilde bul**
-            WebElement viewRoleButton = wait.until(ExpectedConditions.elementToBeClickable(
-                    firstJob.findElement(By.cssSelector("a.btn.btn-navy.rounded"))
-            ));
-            System.out.println("✅ 'View Role' butonu bulundu!");
-
-            // **Butonu ekrana kaydır ve görünür hale getir**
-            ((JavascriptExecutor) driver).executeScript("arguments[0].scrollIntoView(true);", viewRoleButton);
-            Thread.sleep(500); // Küçük bir bekleme
-
-            // **Butona tıklama işlemini yap**
-            try {
-                viewRoleButton.click();
-                System.out.println("✅ 'View Role' butonuna tıklandı!");
-            } catch (Exception e) {
-                System.out.println("⚠️ Selenium click başarısız, JavaScript click deniyoruz...");
-                ((JavascriptExecutor) driver).executeScript("arguments[0].click();", viewRoleButton);
-            }
+            ((JavascriptExecutor) driver).executeScript("arguments[0].click();", button);
 
         } catch (Exception e) {
             System.out.println("❌ 'View Role' tıklama sırasında hata oluştu: " + e.getMessage());
@@ -110,7 +94,6 @@ public class JobListingPage extends BasePage {
 
     public boolean isOnLeverApplicationPage() {
         try {
-            Thread.sleep(3000);
             driver.switchTo().window(driver.getWindowHandles().toArray()[1].toString());
             return driver.getCurrentUrl().contains("lever.co");
         } catch (Exception e) {

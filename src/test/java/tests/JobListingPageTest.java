@@ -15,7 +15,7 @@ public class JobListingPageTest extends BaseTest {
 
         jobListingPage.filterJobs("Istanbul, Turkey");
 
-        //jobListingPage.waitForJobListings(); // İş ilanlarının yüklenmesini bekle
+         // İş ilanlarının yüklenmesini bekle
 
         Assertions.assertTrue(jobListingPage.areJobsDisplayed(), "❌ İş ilanları listelenmedi!");
 
